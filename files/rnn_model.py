@@ -10,12 +10,12 @@ from sklearn.metrics import accuracy_score
 from sklearn.utils import class_weight
 import seaborn as sns
 import matplotlib.pyplot as plt
-from gensim.models import Word2Vec
+from gensim.models import KeyedVectors
 
 # Hyperparameters
 NUM_WORDS = 5000
 MAX_SEQUENCE_LEN = 500
-EMBEDDING_DIM = 100
+EMBEDDING_DIM = 300  # Set to 300 to match GoogleNews-vectors
 RNN_UNITS = 128
 DROPOUT_RATE = 0.5
 LEARNING_RATE = 0.001
@@ -48,28 +48,27 @@ def plot_class_distribution(data):
     plt.show()
 
 
-def train_word2vec_model(reviews):
+def load_pretrained_word2vec(filepath):
     """
-    Train a Word2Vec model on the reviews data with CBOW (Continuous Bag of Words).
+    Load pretrained Word2Vec embeddings.
 
     Args:
-        reviews (list): List of review texts.
+        filepath (str): Path to the pretrained Word2Vec binary file.
 
     Returns:
-        Word2Vec model.
+        KeyedVectors: Loaded Word2Vec model.
     """
-    word2vec_model = Word2Vec(sentences=[review.split() for review in reviews],
-                              vector_size=EMBEDDING_DIM, window=5, min_count=1, workers=4, sg=0)  # CBOW enabled (sg=0)
+    word2vec_model = KeyedVectors.load_word2vec_format(filepath, binary=True)
     return word2vec_model
 
 
-def create_embedding_matrix(word_index, trained_word2vec):
+def create_embedding_matrix(word_index, pretrained_word2vec):
     """
-    Creates an embedding matrix using trained Word2Vec embeddings.
+    Creates an embedding matrix using pretrained Word2Vec embeddings.
 
     Args:
         word_index (dict): Dictionary mapping words to their integer index.
-        trained_word2vec (Word2Vec): Trained Word2Vec model.
+        pretrained_word2vec (KeyedVectors): Pretrained Word2Vec model.
 
     Returns:
         np.array: Embedding matrix.
@@ -79,8 +78,8 @@ def create_embedding_matrix(word_index, trained_word2vec):
 
     for word, i in word_index.items():
         if i < NUM_WORDS:
-            if word in trained_word2vec.wv:
-                embedding_matrix[i] = trained_word2vec.wv[word]
+            if word in pretrained_word2vec:
+                embedding_matrix[i] = pretrained_word2vec[word]
 
     return embedding_matrix
 
@@ -91,7 +90,7 @@ def create_rnn_model(vocab_size, embedding_matrix):
 
     Args:
         vocab_size (int): Size of the vocabulary.
-        embedding_matrix (np.array): Trained Word2Vec embedding weights.
+        embedding_matrix (np.array): Pretrained Word2Vec embedding weights.
 
     Returns:
         A compiled Keras Sequential model.
@@ -160,16 +159,18 @@ def plot_training_history(history, fold_no):
     plt.show()
 
 
-def run_rnn_model(data_filepath):
+def run_rnn_model(data_filepath, word2vec_filepath):
     padded_sequences, labels, tokenizer, reviews = load_and_prepare_data(data_filepath)
     X_train, X_test, y_train, y_test = train_test_split(padded_sequences, labels, test_size=0.2, random_state=42)
 
-    # Train Word2Vec model on reviews with CBOW enabled
-    trained_word2vec = train_word2vec_model(reviews)
-    embedding_matrix = create_embedding_matrix(tokenizer.word_index, trained_word2vec)
+    # Load pretrained Word2Vec model
+    pretrained_word2vec = load_pretrained_word2vec(word2vec_filepath)
+    embedding_matrix = create_embedding_matrix(tokenizer.word_index, pretrained_word2vec)
 
+    # Perform K-fold cross-validation
     accuracies = perform_kfold_cross_validation(X_train, y_train, tokenizer, embedding_matrix)
 
+    # Train and evaluate final model on the test set
     vocab_size = embedding_matrix.shape[0]
     final_model = create_rnn_model(vocab_size, embedding_matrix)
     final_model.fit(X_train, y_train, epochs=EPOCHS, batch_size=BATCH_SIZE, class_weight=compute_class_weights(y_train))
@@ -180,5 +181,7 @@ def run_rnn_model(data_filepath):
     return test_accuracy
 
 
-# Run the model
-run_rnn_model("../data/reviews/clean_review_data.csv")
+# Run the model with paths to data and pretrained Word2Vec model
+run_rnn_model("../data/reviews/clean_review_data.csv",
+              "../data/word2vec/GoogleNews-vectors-negative300.bin/GoogleNews-vectors-negative300.bin")
+# C:\Users\olson\Documents\sentiment_analysis_repo\sentiment_analysis\sentiment_analysis\data\word2vec\GoogleNews-vectors-negative300.bin
