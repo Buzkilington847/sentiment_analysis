@@ -183,5 +183,4 @@ def run_rnn_model(data_filepath, word2vec_filepath):
 
 # Run the model with paths to data and pretrained Word2Vec model
 run_rnn_model("../data/reviews/clean_review_data.csv",
-              "../data/word2vec/GoogleNews-vectors-negative300.bin/GoogleNews-vectors-negative300.bin")
-# C:\Users\olson\Documents\sentiment_analysis_repo\sentiment_analysis\sentiment_analysis\data\word2vec\GoogleNews-vectors-negative300.bin
+              "../data/word2vec/GoogleNews-vectors-negative300.bin")
